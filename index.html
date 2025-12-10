@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resources Tuition Centre - Management System</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Poppins', sans-serif; background-color: #f8fafc; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        /* Modal & Loader */
+        #imgModal { transition: opacity 0.3s; backdrop-filter: blur(5px); }
+        #loader { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.98); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #f3f3f3; border-top: 4px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Toast */
+        #toast-container { position: fixed; bottom: 30px; right: 30px; z-index: 9999; }
+        .toast { padding: 16px 24px; border-radius: 12px; color: white; font-weight: 500; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); opacity: 0; transition: all 0.3s ease; transform: translateY(20px); }
+        .toast.success { background: linear-gradient(to right, #10b981, #059669); }
+        .toast.error { background: linear-gradient(to right, #ef4444, #dc2626); }
+        .toast.show { opacity: 1; transform: translateY(0); }
+
+        .nav-link.active { background-color: #1e293b; border-left: 4px solid #3b82f6; }
+
+        /* ================= PRINT STYLES ================= */
+        @media print {
+            @page { margin: 0; size: A4; }
+            body > *:not(#print-area) { display: none !important; }
+            
+            #print-area { 
+                display: block !important; 
+                position: absolute; top: 0; left: 0; 
+                width: 100%; height: 100%; 
+                background: white; color: black; 
+                z-index: 10000;
+            }
+
+            /* --- RECEIPT: SINGLE PAGE FIXED --- */
+            .receipt-wrapper { width: 100%; height: 100vh; display: flex; flex-direction: column; padding: 10mm; box-sizing: border-box; justify-content: space-between; }
+            .receipt-box { border: 2px solid #000; padding: 10px; height: 48%; position: relative; box-sizing: border-box; display: flex; flex-direction: column; }
+            .receipt-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 5px; }
+            .receipt-header h1 { font-size: 22pt; font-weight: 900; margin: 0; text-transform: uppercase; }
+            .receipt-header h2 { font-size: 11pt; font-weight: bold; margin: 2px 0; }
+            .receipt-header p { font-size: 10pt; margin: 0; }
+            
+            .info-grid { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; font-size: 10pt; }
+            .info-row { width: 100%; display: flex; justify-content: space-between; }
+            
+            .receipt-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 10pt; }
+            .receipt-table th { border: 1px solid #000; padding: 4px; background-color: #eee !important; -webkit-print-color-adjust: exact; text-align: left; }
+            .receipt-table td { border: 1px solid #000; padding: 4px; }
+            
+            .amount-words { font-size: 10pt; font-weight: bold; margin-top: 5px; padding: 4px; border: 1px solid #000; background: #f0f0f0; -webkit-print-color-adjust: exact; }
+            
+            .footer-section { margin-top: auto; padding-top: 10px; display: flex; justify-content: space-between; font-size: 10pt; }
+            .sign-box { border-top: 1px solid #000; padding-top: 2px; width: 120px; text-align: center; }
+            
+            .cut-line { border-bottom: 1px dashed #000; text-align: center; margin: 0; font-size: 8pt; height: 4%; display: flex; align-items: center; justify-content: center; }
+
+            /* --- LIST TABLES: 5mm/3mm MARGINS --- */
+            .print-list-container { padding: 3mm 5mm; width: 100%; box-sizing: border-box; }
+            .list-header { text-align: center; margin-bottom: 10px; border-bottom: 2px solid #009879; padding-bottom: 5px; }
+            .list-header h1 { font-size: 20pt; font-weight: bold; margin: 0; color: #009879; }
+            .styled-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+            .styled-table thead tr { background-color: #009879 !important; color: white !important; -webkit-print-color-adjust: exact; }
+            .styled-table th, .styled-table td { border: 1px solid #000; padding: 6px; text-align: left; }
+            .styled-table tbody tr:nth-child(even) { background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden text-gray-800">
+
+    <!-- Image Modal (Restored) -->
+    <div id="imgModal" onclick="this.classList.add('hidden')" class="fixed inset-0 z-50 bg-black/80 hidden flex justify-center items-center cursor-pointer p-4 backdrop-blur-sm">
+        <img id="imgModalSrc" class="max-h-[90vh] max-w-[90vw] rounded-lg shadow-2xl border-4 border-white">
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-slate-900 text-white flex flex-col fixed h-full z-10 shadow-2xl">
+        <div class="p-6 border-b border-slate-700 bg-slate-950">
+            <h1 class="text-xl font-bold text-blue-400 tracking-wide">LEARN 360+</h1>
+            <p class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Tuition Management</p>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-6">
+            <ul class="space-y-2 px-3">
+                <li><a href="#" onclick="nav('dashboard')" class="nav-link active flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-all"><i class="fas fa-chart-pie w-5"></i> Dashboard</a></li>
+                <li><a href="#" onclick="nav('students')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-all"><i class="fas fa-users w-5"></i> Student Database</a></li>
+                <li><a href="#" onclick="nav('add_student')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-all"><i class="fas fa-user-plus w-5"></i> Add Student</a></li>
+                <li class="px-4 pt-6 pb-2 text-xs text-slate-500 uppercase font-bold tracking-wider">Fees & Accounts</li>
+                <li><a href="#" onclick="nav('fee_collection')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-all"><i class="fas fa-cash-register w-5"></i> Fee Collect</a></li>
+                <li><a href="#" onclick="nav('fee_report')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-all"><i class="fas fa-file-invoice-dollar w-5"></i> Fee Report</a></li>
+                <li><a href="#" onclick="nav('fee_structure')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-all"><i class="fas fa-cogs w-5"></i> Fee Rules</a></li>
+            </ul>
+        </nav>
+        <div class="p-4 border-t border-slate-700 bg-slate-950 text-xs text-green-400">Connected: DENIAL-ASSOCIATES</div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="ml-64 flex-1 flex flex-col h-full">
+        <header class="bg-white shadow-sm h-16 flex items-center justify-between px-8 sticky top-0 z-20 border-b border-gray-100">
+            <div><h2 class="text-xl font-bold text-slate-800">Resources Tuition Centre</h2><p class="text-sm text-slate-500">Sarawagi Dharamshala, Pilani</p></div>
+            <button onclick="saveData()" class="flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-full border border-blue-200 text-sm font-semibold transition-all"><i class="fas fa-sync-alt"></i> Force Sync</button>
+        </header>
+
+        <div id="content" class="flex-1 overflow-auto p-8 relative">
+            
+            <!-- Dashboard -->
+            <div id="dashboard" class="section">
+                <h3 class="text-2xl font-bold mb-6 text-slate-800">Dashboard Overview</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100"><p class="text-slate-500 text-sm font-medium">Total Students</p><h4 class="text-4xl font-bold text-slate-800" id="dash_total_students">0</h4></div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100"><p class="text-slate-500 text-sm font-medium">Collected (Month)</p><h4 class="text-4xl font-bold text-green-600" id="dash_collected">₹ 0</h4></div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100"><p class="text-slate-500 text-sm font-medium">Pending (Month)</p><h4 class="text-4xl font-bold text-red-500" id="dash_pending">₹ 0</h4></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <h4 class="font-bold text-slate-700 mb-4">Fee Overview</h4>
+                        <div class="relative h-64 w-full"><canvas id="feeChart"></canvas></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                        <h4 class="font-bold text-slate-700 mb-4">Recent Transactions</h4>
+                        <div class="overflow-y-auto flex-1 h-64">
+                            <table class="w-full text-sm text-left"><thead class="bg-gray-50"><tr><th class="p-2">Rec#</th><th class="p-2">Name</th><th class="p-2">Amount</th></tr></thead><tbody id="recent_tx_tbody"></tbody></table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student DB (Restored All Columns) -->
+            <div id="students" class="section hidden">
+                <div class="flex justify-between items-center mb-6"><h3 class="text-2xl font-bold text-slate-800">Student Database</h3><div class="flex gap-2"><button onclick="exportData('print')" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm">Print List</button><button onclick="exportData('excel')" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">Excel</button></div></div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex gap-4"><input type="text" id="search_global" onkeyup="renderStudentTable()" placeholder="Search..." class="w-full border p-2.5 rounded-lg"><select id="filter_class" onchange="renderStudentTable()" class="border p-2.5 rounded-lg"><option value="">All Classes</option></select></div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-100">
+                        <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
+                            <tr><th class="px-4 py-3 text-left">ID</th><th class="px-4 py-3 text-left">Photo</th><th class="px-4 py-3 text-left">Name</th><th class="px-4 py-3 text-left">Father</th><th class="px-4 py-3 text-left">Mother</th><th class="px-4 py-3 text-left">Address</th><th class="px-4 py-3 text-left">Mobile</th><th class="px-4 py-3 text-left">Class</th><th class="px-4 py-3 text-left">Fees (T/Tr)</th><th class="px-4 py-3 text-center">Action</th></tr>
+                        </thead>
+                        <tbody id="student_tbody" class="bg-white divide-y divide-gray-50"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Add Student -->
+            <div id="add_student" class="section hidden">
+                <h3 class="text-2xl font-bold mb-6 text-slate-800">Add New Student</h3>
+                <form id="studentForm" onsubmit="handleStudentSubmit(event)" class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                    <input type="hidden" id="stu_edit_index" value="-1">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                        <div class="md:col-span-1 flex flex-col items-center">
+                            <div class="w-40 h-40 bg-slate-50 border-2 border-dashed border-slate-300 rounded-full flex items-center justify-center overflow-hidden mb-4"><img id="preview_img" class="w-full h-full object-cover hidden"><i id="preview_icon" class="fas fa-camera text-slate-300 text-4xl"></i></div>
+                            <label class="cursor-pointer bg-slate-800 text-white px-5 py-2 text-sm rounded-full hover:bg-slate-900">Upload Photo<input type="file" id="stu_photo" accept="image/*" class="hidden" onchange="processImage(this)"></label>
+                            <input type="hidden" id="stu_photo_base64">
+                            <p class="text-xs text-slate-400 mt-3">ID: <span id="stu_generated_id" class="font-bold text-blue-600">...</span></p>
+                        </div>
+                        <div class="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Name</label><input type="text" id="stu_name" required class="w-full border p-2.5 rounded-lg mt-1"></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Class</label><input type="text" id="stu_class" oninput="checkClassInput()" required placeholder="e.g. 10" class="w-full border p-2.5 rounded-lg mt-1"></div>
+                            <div id="subject_field_container" class="hidden md:col-span-2"><label class="text-xs font-bold text-blue-600 uppercase">Subjects</label><input type="text" id="stu_subjects" class="w-full border border-blue-200 bg-blue-50 p-2.5 rounded-lg mt-1"></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Section</label><input type="text" id="stu_section" class="w-full border p-2.5 rounded-lg mt-1"></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Father's Name</label><input type="text" id="stu_father" required class="w-full border p-2.5 rounded-lg mt-1"></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Mother's Name</label><input type="text" id="stu_mother" class="w-full border p-2.5 rounded-lg mt-1"></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Mobile No</label><input type="tel" id="stu_mobile" required class="w-full border p-2.5 rounded-lg mt-1"></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Address</label><input type="text" id="stu_address" class="w-full border p-2.5 rounded-lg mt-1"></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Tuition Fee</label><input type="number" id="stu_fee_base" class="w-full border p-2.5 rounded-lg mt-1" placeholder="Auto Rule"></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Transport Fee</label><input type="number" id="stu_fee_transport" class="w-full border p-2.5 rounded-lg mt-1" placeholder="Auto Rule"></div>
+                        </div>
+                    </div>
+                    <div class="mt-8 flex justify-end gap-3 pt-6 border-t border-gray-100">
+                        <button type="button" onclick="nav('students')" class="px-6 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+                        <button type="submit" class="bg-blue-600 text-white px-8 py-2.5 rounded-lg font-bold hover:bg-blue-700">Save Student</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Fee Collection -->
+            <div id="fee_collection" class="section hidden">
+                <h3 class="text-2xl font-bold mb-6 text-slate-800">Fee Collection</h3>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex gap-4 flex-wrap"><select id="filter_fee_month" onchange="renderFeeTable()" class="border p-2 rounded-lg"></select><select id="filter_fee_year" onchange="renderFeeTable()" class="border p-2 rounded-lg"></select><input type="text" id="search_fee_student" onkeyup="renderFeeTable()" placeholder="Search..." class="border p-2 rounded-lg flex-1"></div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"><table class="min-w-full divide-y divide-gray-100"><thead class="bg-slate-50 text-slate-500 font-bold uppercase text-xs"><tr><th class="px-6 py-4 text-left">ID</th><th class="px-6 py-4 text-left">Name</th><th class="px-6 py-4 text-left">Father</th><th class="px-6 py-4 text-left">Mobile</th><th class="px-6 py-4 text-left">Class</th><th class="px-6 py-4 text-center">Status</th><th class="px-6 py-4 text-center">Action</th></tr></thead><tbody id="fee_status_tbody" class="bg-white divide-y divide-gray-50"></tbody></table></div>
+            </div>
+
+            <!-- Fee Report (Actions Restored) -->
+            <div id="fee_report" class="section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-bold text-slate-800">Transaction History</h3>
+                    <button onclick="printReport()" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm"><i class="fas fa-print"></i> Print Report</button>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6"><input type="text" id="report_search" onkeyup="renderReportTable()" placeholder="Search..." class="w-full border p-2.5 rounded-lg"></div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-100"><thead class="bg-slate-50 text-slate-500 font-bold uppercase text-xs"><tr><th class="px-4 py-3 text-left">Rec#</th><th class="px-4 py-3 text-left">Date</th><th class="px-4 py-3 text-left">Student</th><th class="px-4 py-3 text-left">Father</th><th class="px-4 py-3 text-left">Mobile</th><th class="px-4 py-3 text-left">Total</th><th class="px-4 py-3 text-center">Actions</th></tr></thead><tbody id="report_tbody" class="bg-white divide-y divide-gray-50"></tbody></table>
+                </div>
+            </div>
+
+            <!-- Fee Structure (Added Transport) -->
+            <div id="fee_structure" class="section hidden">
+                <h3 class="text-2xl font-bold mb-6 text-slate-800">Fee Rules</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-1 bg-white p-6 rounded-2xl shadow-sm border h-fit"><h4 class="font-bold text-lg mb-4">Add Rule</h4><div class="space-y-3"><input type="text" id="rule_class" placeholder="Class" class="w-full border p-2.5 rounded-lg"><select id="rule_type" class="w-full border p-2.5 rounded-lg"><option value="Fixed">Fixed</option><option value="Subject">Per Subject</option></select><input type="number" id="rule_tuition" placeholder="Tuition ₹" class="w-full border p-2.5 rounded-lg"><input type="number" id="rule_transport" placeholder="Transport ₹" class="w-full border p-2.5 rounded-lg"><button onclick="addRule()" class="w-full bg-slate-800 text-white py-2.5 rounded-lg">Add Rule</button></div></div>
+                    <div class="md:col-span-2 bg-white rounded-2xl shadow-sm border overflow-hidden"><table class="min-w-full divide-y divide-gray-100"><thead class="bg-slate-50 text-slate-500 font-bold uppercase text-xs"><tr><th class="px-6 py-4 text-left">Class</th><th class="px-6 py-4 text-left">Type</th><th class="px-6 py-4 text-left">Tuition</th><th class="px-6 py-4 text-left">Transport</th><th class="px-6 py-4 text-right">Action</th></tr></thead><tbody id="rules_tbody" class="bg-white divide-y divide-gray-50"></tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Collect Modal -->
+    <div id="collectModal" class="fixed inset-0 bg-slate-900/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
+            <input type="hidden" id="pay_edit_mode_index" value="-1">
+            <div class="flex justify-between items-center p-6 border-b"><h3 class="text-xl font-bold text-slate-800">Collect Fee</h3><button onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-slate-50 p-3 rounded-lg"><p class="text-xs font-bold text-slate-500 uppercase">Student</p><h4 class="font-bold text-slate-800" id="pay_stu_name">...</h4></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><p class="text-xs font-bold text-slate-500 uppercase">ID</p><h4 class="font-bold text-slate-800" id="pay_stu_id">...</h4></div>
+                <div><label class="text-xs font-bold text-slate-500 uppercase">Tuition Fee</label><input type="number" id="pay_tuition" class="w-full border p-2 rounded-lg"></div>
+                <div><label class="text-xs font-bold text-slate-500 uppercase">Transport Fee</label><input type="number" id="pay_transport" class="w-full border p-2 rounded-lg"></div>
+                <div class="md:col-span-2"><label class="text-xs font-bold text-slate-500 uppercase">Remarks</label><input type="text" id="pay_desc" class="w-full border p-2 rounded-lg"></div>
+                <div><label class="text-xs font-bold text-slate-500 uppercase">Total</label><input type="number" id="pay_total" readonly class="w-full border bg-green-50 text-green-700 p-2 rounded-lg font-bold"></div>
+                <div><label class="text-xs font-bold text-slate-500 uppercase">Mode</label><select id="pay_mode" class="w-full border p-2 rounded-lg"><option>Cash</option><option>UPI</option><option>Cheque</option></select></div>
+            </div>
+            <div class="p-6 border-t flex justify-end gap-3"><button onclick="closeModal()" class="px-4 py-2 border rounded-lg">Cancel</button><button onclick="confirmCollection()" class="px-6 py-2 bg-green-600 text-white rounded-lg font-bold">Collect & Print</button></div>
+        </div>
+    </div>
+
+    <div id="loader"><div class="spinner"></div><p id="loader_msg" class="mt-4 text-slate-600 font-medium">Syncing Data...</p></div>
+    <div id="toast-container"></div>
+    <div id="print-area" class="hidden"></div>
+
+    <script>
+        const CONFIG = { token: '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', username: 'hiteshjangir8057', repo: 'DENIAL-ASSOCIATES', filename: 'data.json' };
+        let STATE = { students: [], feeRecords: [], feeStructure: [] };
+        let currentSha = null, selectedStudentForFee = null, chartInstance = null;
+        const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+        document.addEventListener('DOMContentLoaded', () => { initInputs(); loadData(); setTimeout(() => { document.getElementById('loader').style.display='none'; }, 7000); });
+
+        function initInputs() {
+            const m = document.getElementById('filter_fee_month'), y = document.getElementById('filter_fee_year'), d = new Date();
+            MONTHS.forEach((mn, i) => { const o = new Option(mn, mn); if(i===d.getMonth()) o.selected=true; m.add(o); });
+            for(let i=d.getFullYear()-1; i<=d.getFullYear()+1; i++) { const o = new Option(i, i); if(i===d.getFullYear()) o.selected=true; y.add(o); }
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch(`https://api.github.com/repos/${CONFIG.username}/${CONFIG.repo}/contents/${CONFIG.filename}?t=${Date.now()}`, { headers: { 'Authorization': `token ${CONFIG.token}`, 'Accept': 'application/vnd.github.v3+json' } });
+                if(res.status===404) { saveData(true); return; }
+                const d = await res.json(); currentSha = d.sha;
+                STATE = JSON.parse(decodeURIComponent(escape(atob(d.content.replace(/\n/g, '')))));
+                if(Array.isArray(STATE)) STATE = { students: [], feeRecords: [], feeStructure: [] };
+                ['students','feeRecords','feeStructure'].forEach(k => { if(!STATE[k]) STATE[k] = []; });
+                refreshUI(); showToast("Connected Successfully", "success");
+            } catch(e) { showToast("Sync Error: Check Connection", "error"); } finally { document.getElementById('loader').style.display = 'none'; }
+        }
+
+        async function saveData(init=false) {
+            document.getElementById('loader').style.display = 'flex';
+            try {
+                const contentEncoded = window.btoa(unescape(encodeURIComponent(JSON.stringify(STATE))));
+                const body = { message: "Update", content: contentEncoded, sha: currentSha || undefined };
+                const res = await fetch(`https://api.github.com/repos/${CONFIG.username}/${CONFIG.repo}/contents/${CONFIG.filename}`, { method: 'PUT', headers: { 'Authorization': `token ${CONFIG.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                if (res.ok) { currentSha = (await res.json()).content.sha; showToast("Saved", "success"); refreshUI(); } else throw new Error();
+            } catch(e) { showToast("Save Failed", "error"); } finally { document.getElementById('loader').style.display = 'none'; }
+        }
+
+        function refreshUI() {
+            if(!document.getElementById('dashboard').classList.contains('hidden')) updateDashboard();
+            if(!document.getElementById('students').classList.contains('hidden')) renderStudentTable();
+            if(!document.getElementById('fee_collection').classList.contains('hidden')) renderFeeTable();
+            if(!document.getElementById('fee_report').classList.contains('hidden')) renderReportTable();
+            if(!document.getElementById('fee_structure').classList.contains('hidden')) renderRulesTable();
+        }
+
+        function nav(id) {
+            document.querySelectorAll('.section').forEach(e => e.classList.add('hidden'));
+            document.querySelectorAll('.nav-link').forEach(e => e.classList.remove('active'));
+            document.getElementById(id).classList.remove('hidden');
+            if(event) event.currentTarget.classList.add('active');
+            if(id === 'add_student') { resetStudentForm(); generateNextID(); } else refreshUI();
+        }
+
+        function checkClassInput() {
+            const cls = document.getElementById('stu_class').value;
+            document.getElementById('subject_field_container').classList.toggle('hidden', cls !== '11' && cls !== '12');
+        }
+
+        // --- NEW STUDENT TABLE (ALL COLUMNS) ---
+        function renderStudentTable() {
+            const tbody = document.getElementById('student_tbody'); tbody.innerHTML = '';
+            const search = document.getElementById('search_global').value.toLowerCase();
+            const clsFilter = document.getElementById('filter_class').value;
+            
+            const classes = [...new Set(STATE.students.map(s => s.class))].sort();
+            const filterSel = document.getElementById('filter_class');
+            if(filterSel.options.length === 1) filterSel.innerHTML += classes.map(c => `<option value="${c}">${c}</option>`).join('');
+
+            STATE.students.forEach((s, i) => {
+                if (clsFilter && s.class !== clsFilter) return;
+                if (search && !Object.values(s).some(v => String(v).toLowerCase().includes(search))) return;
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${s.id}</td>
+                        <td class="px-6 py-4 whitespace-nowrap"><img src="${s.photo || 'https://via.placeholder.com/40'}" onclick="viewPhoto(${i})" class="h-10 w-10 rounded-full object-cover border-2 border-white shadow-sm cursor-pointer hover:scale-110 transition-transform"></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-700">${s.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">${s.father}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">${s.mother}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 truncate max-w-xs">${s.address}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">${s.mobile}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">${s.class}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">₹${s.baseFee||'Auto'} / ₹${s.transportFee||'Auto'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <button onclick="editStudent(${i})" class="text-blue-500 hover:text-blue-700 mx-2 transition-colors"><i class="fas fa-edit"></i></button>
+                            <button onclick="deleteStudent(${i})" class="text-red-500 hover:text-red-700 mx-2 transition-colors"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        // --- FEE TABLES ---
+        function renderFeeTable() {
+            const tbody = document.getElementById('fee_status_tbody'); tbody.innerHTML = '';
+            const m = document.getElementById('filter_fee_month').value, y = document.getElementById('filter_fee_year').value;
+            const search = document.getElementById('search_fee_student').value.toLowerCase();
+
+            STATE.students.forEach(s => {
+                if (search && !s.name.toLowerCase().includes(search) && !s.id.toLowerCase().includes(search)) return;
+                const paid = STATE.feeRecords.find(r => r.studentId === s.id && r.month === m && r.year == y);
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b border-slate-50">
+                        <td class="px-6 py-4 text-sm text-slate-500">${s.id}</td>
+                        <td class="px-6 py-4 text-sm font-bold text-slate-700">${s.name}</td>
+                        <td class="px-6 py-4 text-sm text-slate-600">${s.father}</td>
+                        <td class="px-6 py-4 text-sm text-slate-600">${s.mobile}</td>
+                        <td class="px-6 py-4 text-sm">${s.class}</td>
+                        <td class="px-6 py-4 text-center">${paid ? '<span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold shadow-sm">PAID</span>' : '<span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold shadow-sm">DUE</span>'}</td>
+                        <td class="px-6 py-4 text-center">
+                            ${paid ? `<button onclick='rePrint(${JSON.stringify(paid)})' class="text-blue-600 hover:underline text-xs font-semibold">Receipt</button>` : 
+                            `<button onclick='openCollectModal(${JSON.stringify(s)})' class="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 shadow-md hover:shadow-lg transition-all">Collect</button>`}
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        function renderReportTable() {
+            const tbody = document.getElementById('report_tbody'); tbody.innerHTML = '';
+            const q = document.getElementById('report_search').value.toLowerCase();
+            [...STATE.feeRecords].reverse().forEach((r, i) => {
+                const s = STATE.students.find(stu => String(stu.id) === String(r.studentId));
+                if (q && !Object.values(r).some(v => String(v).toLowerCase().includes(q))) return;
+                const realIdx = STATE.feeRecords.indexOf(r);
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b border-slate-50">
+                        <td class="px-6 py-4 text-sm text-slate-500 font-mono">${r.receiptNo}</td>
+                        <td class="px-6 py-4 text-sm text-slate-600">${r.date}</td>
+                        <td class="px-6 py-4 text-sm font-bold text-slate-700">${r.studentName}</td>
+                        <td class="px-6 py-4 text-sm text-slate-600">${s ? s.father : '-'}</td>
+                        <td class="px-6 py-4 text-sm text-slate-600">${s ? s.mobile : '-'}</td>
+                        <td class="px-6 py-4 text-sm font-bold text-green-600">₹ ${r.total}</td>
+                        <td class="px-6 py-4 text-center space-x-3">
+                            <button onclick='rePrint(${JSON.stringify(r)})' class="text-slate-500 hover:text-blue-600 transition-colors" title="Print"><i class="fas fa-print"></i></button>
+                            <button onclick='editFeeRecord(${realIdx})' class="text-slate-500 hover:text-yellow-600 transition-colors" title="Edit"><i class="fas fa-edit"></i></button>
+                            <button onclick='deleteFeeRecord(${realIdx})' class="text-slate-500 hover:text-red-600 transition-colors" title="Delete"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        function numToWords(n) { const a = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'], b = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety']; const num = parseInt(n); if(num===0) return 'Zero'; const c = (n) => { if(n<20) return a[n]; if(n<100) return b[Math.floor(n/10)]+(n%10?' '+a[n%10]:''); if(n<1000) return a[Math.floor(n/100)]+' Hundred'+(n%100?' '+c(n%100):''); return c(Math.floor(n/1000))+' Thousand'+(n%1000?' '+c(n%1000):''); }; return c(num)+" Only"; }
+
+        function printReceipt(rec, stu) {
+            const area = document.getElementById('print-area');
+            const template = (copy) => `
+                <div class="receipt-box">
+                    <div class="receipt-header">
+                        <h1>LEARN 360+ EXPERTISE</h1>
+                        <h2>Resources Tuition Centre, Pilani</h2>
+                        <p>Sarawagi Dharamshala, Near Jherli Road | 📞 9667683378, 9694449220</p>
+                    </div>
+                    <div style="position:absolute; top:10px; right:10px; border:1px solid #000; padding:2px 5px; font-size:8pt; font-weight:bold;">${copy}</div>
+                    
+                    <div class="info-grid">
+                        <div class="info-row"><span><strong>Rec No:</strong> ${rec.receiptNo}</span><span><strong>Date:</strong> ${rec.date}</span></div>
+                        <div class="info-row"><span><strong>Name:</strong> ${rec.studentName}</span><span><strong>ID:</strong> ${rec.studentId}</span></div>
+                        <div class="info-row"><span><strong>Father:</strong> ${stu.father}</span><span><strong>Class:</strong> ${rec.class}</span></div>
+                        ${stu.subjects ? `<div class="info-row"><span><strong>Subjects:</strong> ${stu.subjects}</span></div>` : ''}
+                    </div>
+
+                    <table class="receipt-table">
+                        <thead><tr><th>Description</th><th style="text-align:right; width:80px;">Amount (₹)</th></tr></thead>
+                        <tbody>
+                            <tr><td>Tuition Fee (${rec.month} ${rec.year})</td><td style="text-align:right;">${rec.tuition}</td></tr>
+                            <tr><td>Transport Fee</td><td style="text-align:right;">${rec.transport}</td></tr>
+                            <tr style="border-top:2px solid #000;"><td style="font-weight:bold; text-align:right;">Grand Total</td><td style="text-align:right; font-weight:bold;">${rec.total}</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="amount-words">In Words: ${numToWords(rec.total)}</div>
+                    <div style="font-size: 9pt; margin-top:5px;"><strong>Payment Mode:</strong> ${rec.mode}</div>
+
+                    <div class="footer-section">
+                        <div class="sign-box">Signature</div>
+                        <div class="sign-box">Auth. Signatory</div>
+                    </div>
+                </div>`;
+
+            area.innerHTML = `
+                <div class="receipt-wrapper">
+                    ${template('OFFICE COPY')}
+                    <div class="cut-line"></div>
+                    ${template('PARENTS COPY')}
+                </div>`;
+            
+            area.classList.remove('hidden');
+            setTimeout(() => { window.print(); area.classList.add('hidden'); }, 300);
+        }
+
+        function exportData(type) {
+            const header = `<div class="list-header"><h1>LEARN 360+ EXPERTISE</h1><p>Resources Tuition Centre, Pilani | 📞 9667683378</p></div>`;
+            if(type === 'print') {
+                const area = document.getElementById('print-area');
+                area.innerHTML = `<div class="print-list-container">${header}<h3 style="text-align:center; margin-bottom:10px;">Student List</h3><table class="styled-table"><thead><tr><th>ID</th><th>Name</th><th>Father</th><th>Mother</th><th>Address</th><th>Mobile</th><th>Class</th></tr></thead><tbody>${STATE.students.map(s => `<tr><td>${s.id}</td><td>${s.name}</td><td>${s.father}</td><td>${s.mother}</td><td>${s.address}</td><td>${s.mobile}</td><td>${s.class}</td></tr>`).join('')}</tbody></table></div>`;
+                area.classList.remove('hidden');
+                setTimeout(() => { window.print(); area.classList.add('hidden'); }, 300);
+            } else if(type === 'excel') {
+                const ws = XLSX.utils.json_to_sheet(STATE.students.map(({photo, ...rest}) => rest));
+                const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Students"); XLSX.writeFile(wb, "Student_DB.xlsx");
+            }
+        }
+        function printReport() {
+            const area = document.getElementById('print-area');
+            const header = `<div class="list-header"><h1>LEARN 360+ EXPERTISE</h1><p>Resources Tuition Centre, Pilani | 📞 9667683378</p></div>`;
+            area.innerHTML = `<div class="print-list-container">${header}<h3 style="text-align:center; margin-bottom:10px;">Fee Report</h3><table class="styled-table"><thead><tr><th>Rec#</th><th>Date</th><th>Student</th><th>Father</th><th>Mobile</th><th>Class</th><th>Total</th></tr></thead><tbody>${STATE.feeRecords.map(r => { const s = STATE.students.find(x => String(x.id) === String(r.studentId)); return `<tr><td>${r.receiptNo}</td><td>${r.date}</td><td>${r.studentName}</td><td>${s?s.father:''}</td><td>${s?s.mobile:''}</td><td>${r.class}</td><td>${r.total}</td></tr>`; }).join('')}</tbody></table></div>`;
+            area.classList.remove('hidden');
+            setTimeout(() => { window.print(); area.classList.add('hidden'); }, 300);
+        }
+
+        // Logic Helpers
+        function calculateExpectedFee(student) { let tFee = 0; if(student.baseFee && parseInt(student.baseFee) > 0) tFee = parseInt(student.baseFee); else { const rule = STATE.feeStructure.find(r => r.class === student.class); if(rule) { if(rule.type === 'Fixed') tFee = rule.amount; else if (rule.type === 'Subject') { const subCount = student.subjects ? student.subjects.split(',').length : 0; tFee = rule.amount * subCount; } } } return tFee + (parseInt(student.transportFee) || 0); }
+        function handleStudentSubmit(e) { e.preventDefault(); const idx = parseInt(document.getElementById('stu_edit_index').value); const s = { id: idx === -1 ? document.getElementById('stu_generated_id').innerText : STATE.students[idx].id, name: document.getElementById('stu_name').value, class: document.getElementById('stu_class').value, subjects: document.getElementById('stu_subjects').value, section: document.getElementById('stu_section').value, father: document.getElementById('stu_father').value, mother: document.getElementById('stu_mother').value, mobile: document.getElementById('stu_mobile').value, address: document.getElementById('stu_address').value, baseFee: document.getElementById('stu_fee_base').value, transportFee: document.getElementById('stu_fee_transport').value, photo: document.getElementById('stu_photo_base64').value }; if(idx === -1) STATE.students.push(s); else STATE.students[idx] = s; saveData(); nav('students'); }
+        function deleteStudent(i) { if(confirm("Delete?")) { STATE.students.splice(i, 1); saveData(); renderStudentTable(); } }
+        function editStudent(i) { const s = STATE.students[i]; nav('add_student'); document.getElementById('stu_edit_index').value = i; document.getElementById('stu_generated_id').innerText = s.id; document.getElementById('stu_name').value = s.name; document.getElementById('stu_class').value = s.class; checkClassInput(); document.getElementById('stu_subjects').value = s.subjects||''; document.getElementById('stu_section').value = s.section; document.getElementById('stu_father').value = s.father; document.getElementById('stu_mother').value = s.mother; document.getElementById('stu_mobile').value = s.mobile; document.getElementById('stu_address').value = s.address; document.getElementById('stu_fee_base').value = s.baseFee; document.getElementById('stu_fee_transport').value = s.transportFee; document.getElementById('stu_photo_base64').value = s.photo; if(s.photo) { document.getElementById('preview_img').src = s.photo; document.getElementById('preview_img').classList.remove('hidden'); document.getElementById('preview_icon').classList.add('hidden'); } }
+        function openCollectModal(s, edit = false, rec = null) { selectedStudentForFee = s; document.getElementById('pay_stu_name').innerText = s.name; document.getElementById('pay_stu_id').innerText = s.id; const t = document.getElementById('pay_tuition'), tr = document.getElementById('pay_transport'), d = document.getElementById('pay_desc'), idx = document.getElementById('pay_edit_mode_index'); if(edit && rec) { idx.value = STATE.feeRecords.indexOf(rec); t.value = rec.tuition; tr.value = rec.transport; d.value = rec.description || ''; } else { idx.value = "-1"; const f = getFees(s); t.value = f.tuition; tr.value = f.transport; d.value = ''; } updateTotal(); t.oninput = tr.oninput = updateTotal; document.getElementById('collectModal').classList.remove('hidden'); }
+        function closeModal() { document.getElementById('collectModal').classList.add('hidden'); }
+        function updateTotal() { document.getElementById('pay_total').value = (parseInt(document.getElementById('pay_tuition').value)||0) + (parseInt(document.getElementById('pay_transport').value)||0); }
+        function deleteFeeRecord(i) { if(confirm("Delete?")) { STATE.feeRecords.splice(i, 1); saveData(); } }
+        function editFeeRecord(i) { const r = STATE.feeRecords[i], s = STATE.students.find(x => String(x.id) === String(r.studentId)); if(s) openCollectModal(s, true, r); }
+        function rePrint(r) { const s = STATE.students.find(x => String(x.id) === String(r.studentId)); if(s) printReceipt(r, s); }
+        function addRule() { const c = document.getElementById('rule_class').value, t = document.getElementById('rule_type').value, f = document.getElementById('rule_tuition').value, tr = document.getElementById('rule_transport').value; if(c && f) { STATE.feeStructure.push({class:c, type:t, tuition: f, transport: tr || 0}); saveData(); renderRulesTable(); } }
+        function deleteRule(i) { STATE.feeStructure.splice(i, 1); saveData(); renderRulesTable(); }
+        function renderRulesTable() { const b = document.getElementById('rules_tbody'); b.innerHTML = ''; STATE.feeStructure.forEach((r, i) => b.innerHTML += `<tr class="border-b border-slate-50"><td class="px-6 py-4">${r.class}</td><td class="px-6 py-4">${r.type}</td><td class="px-6 py-4">₹${r.tuition}</td><td class="px-6 py-4">₹${r.transport}</td><td class="px-6 py-4 text-right"><button onclick="deleteRule(${i})" class="text-red-500"><i class="fas fa-trash"></i></button></td></tr>`); }
+        function updateDashboard() { if(!document.getElementById('dash_total_students')) return; document.getElementById('dash_total_students').innerText = STATE.students.length; const m = document.getElementById('filter_fee_month').value || MONTHS[new Date().getMonth()]; const y = document.getElementById('filter_fee_year').value || new Date().getFullYear(); const coll = STATE.feeRecords.filter(r => r.month === m && r.year == y).reduce((a, b) => a + parseInt(b.total), 0); document.getElementById('dash_collected').innerText = '₹ ' + coll; let exp = 0; STATE.students.forEach(s => { const f = getFees(s); exp += f.tuition + f.transport; }); document.getElementById('dash_pending').innerText = '₹ ' + (exp - coll < 0 ? 0 : exp - coll); const l = document.getElementById('recent_tx_tbody'); l.innerHTML = ''; [...STATE.feeRecords].reverse().slice(0, 5).forEach(r => l.innerHTML += `<tr class="border-b border-slate-50"><td class="px-3 py-3 text-xs text-slate-500 font-mono">${r.receiptNo}</td><td class="px-3 py-3 text-xs font-bold text-slate-700">${r.studentName}</td><td class="px-3 py-3 text-xs font-bold text-green-600">₹${r.total}</td></tr>`); if(chartInstance) chartInstance.destroy(); if(document.getElementById('feeChart')) chartInstance = new Chart(document.getElementById('feeChart').getContext('2d'), { type: 'bar', data: { labels: ['Expected', 'Collected', 'Pending'], datasets: [{ label: 'Amount', data: [exp, coll, (exp-coll<0?0:exp-coll)], backgroundColor: ['#3b82f6', '#10b981', '#ef4444'], borderRadius: 6 }] }, options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { borderDash: [2, 4] } } } } }); }
+        function getFees(s) { let t = parseInt(s.baseFee) || 0, tr = parseInt(s.transportFee) || 0; const r = STATE.feeStructure.find(x => x.class === s.class); if(r) { if(!t) t = r.type === 'Fixed' ? parseInt(r.tuition) : parseInt(r.tuition) * (s.subjects ? s.subjects.split(',').length : 0); if(!tr) tr = parseInt(r.transport); } return { tuition: t, transport: tr }; }
+        function processImage(i) { if(i.files && i.files[0]) { const r = new FileReader(); r.onload = (e) => { const img = new Image(); img.src = e.target.result; img.onload = () => { const c = document.createElement('canvas'); const ctx = c.getContext('2d'); const s = 600/img.width; c.width = 600; c.height = img.height*s; ctx.drawImage(img, 0, 0, c.width, c.height); const d = c.toDataURL('image/jpeg', 0.7); document.getElementById('preview_img').src = d; document.getElementById('preview_img').classList.remove('hidden'); document.getElementById('preview_icon').classList.add('hidden'); document.getElementById('stu_photo_base64').value = d; } }; r.readAsDataURL(i.files[0]); } }
+        function generateNextID() { if(STATE.students.length === 0) document.getElementById('stu_generated_id').innerText = "STU-1001"; else { const ids = STATE.students.map(s => parseInt(s.id.split('-')[1])); document.getElementById('stu_generated_id').innerText = "STU-" + (Math.max(...ids) + 1); } }
+        function resetStudentForm() { document.getElementById('studentForm').reset(); document.getElementById('preview_img').src = ''; document.getElementById('preview_img').classList.add('hidden'); document.getElementById('preview_icon').classList.remove('hidden'); document.getElementById('stu_photo_base64').value = ''; document.getElementById('stu_edit_index').value = '-1'; document.getElementById('subject_field_container').classList.add('hidden'); }
+        function showToast(m, t) { const c = document.getElementById('toast-container'); const el = document.createElement('div'); el.className = `toast ${t}`; el.innerText = m; c.appendChild(el); setTimeout(() => el.classList.add('show'), 10); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3000); }
+        function confirmCollection() { const amt = document.getElementById('pay_total').value; if(amt <= 0) return showToast("Invalid Amount", "error"); const idx = parseInt(document.getElementById('pay_edit_mode_index').value); const rec = { receiptNo: idx > -1 ? STATE.feeRecords[idx].receiptNo : "REC-" + Date.now().toString().slice(-6), date: new Date().toLocaleDateString('en-GB'), studentId: selectedStudentForFee.id, studentName: selectedStudentForFee.name, class: selectedStudentForFee.class, month: document.getElementById('filter_fee_month').value, year: document.getElementById('filter_fee_year').value, tuition: document.getElementById('pay_tuition').value, transport: document.getElementById('pay_transport').value, total: amt, mode: document.getElementById('pay_mode').value, description: document.getElementById('pay_desc').value }; if(idx > -1) STATE.feeRecords[idx] = rec; else STATE.feeRecords.push(rec); closeModal(); saveData(); printReceipt(rec, selectedStudentForFee); }
+        function viewPhoto(i) { const s = STATE.students[i]; if(s && s.photo) { document.getElementById('imgModalSrc').src = s.photo; document.getElementById('imgModal').classList.remove('hidden'); } }
+    </script>
+</body>
+</html>
